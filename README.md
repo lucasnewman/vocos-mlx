@@ -11,8 +11,25 @@ To use Vocos only in inference mode, install it using:
 ```bash
 pip install vocos-mlx
 ```
-## Citations
 
+## Usage
+
+```python
+from vocos_mlx import Vocos, load_audio, log_mel_spectrogram
+
+audio = load_audio("audio.wav", 24_000)
+mel_spec = log_mel_spectrogram(audio, n_mels = 100)
+
+vocos = Vocos.from_pretrained("lucasnewman/vocos-mel-24khz")
+
+# reconstruct
+reconstructed_audio = vocos_mlx(audio)
+
+# decode
+decoded_audio = vocos_mlx.decode(mx.expand_dims(mel_spec, axis=0))
+```
+
+## Citations
 
 ```
 @article{siuzdak2023vocos,

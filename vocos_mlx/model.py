@@ -127,7 +127,7 @@ def log_mel_spectrogram(
     return log_spec
 
 
-class ISTFTHeadMLX(nn.Module):
+class ISTFTHead(nn.Module):
     def __init__(self, dim: int, n_fft: int, hop_length: int, padding: str = "center"):
         super().__init__()
         self.n_fft = n_fft
@@ -152,7 +152,7 @@ class ISTFTHeadMLX(nn.Module):
         return audio
 
 
-class ConvNeXtBlockMLX(nn.Module):
+class ConvNeXtBlock(nn.Module):
     def __init__(self, dim: int, intermediate_dim: int, layer_scale_init_value: float):
         super().__init__()
 
@@ -178,7 +178,7 @@ class ConvNeXtBlockMLX(nn.Module):
         return x
 
 
-class VocosBackboneMLX(nn.Module):
+class VocosBackbone(nn.Module):
     def __init__(
         self,
         input_channels: int,
@@ -193,7 +193,7 @@ class VocosBackboneMLX(nn.Module):
         self.norm = nn.LayerNorm(dim, eps=1e-6)
         layer_scale_init_value = layer_scale_init_value or 1 / num_layers
         self.convnext = [
-            ConvNeXtBlockMLX(
+            ConvNeXtBlock(
                 dim=dim,
                 intermediate_dim=intermediate_dim,
                 layer_scale_init_value=layer_scale_init_value,
@@ -211,31 +211,31 @@ class VocosBackboneMLX(nn.Module):
         return x
 
 
-class VocosMLX(nn.Module):
+class Vocos(nn.Module):
     def __init__(
         self,
-        backbone: VocosBackboneMLX,
-        head: ISTFTHeadMLX,
+        backbone: VocosBackbone,
+        head: ISTFTHead,
     ):
         super().__init__()
         self.backbone = backbone
         self.head = head
 
     @classmethod
-    def from_hparams(cls, config_path: str) -> VocosMLX:
+    def from_hparams(cls, config_path: str) -> Vocos:
         """
         Class method to create a new Vocos model instance from hyperparameters stored in a yaml configuration file.
         """
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
 
-        backbone = VocosBackboneMLX(**config["backbone"]["init_args"])
-        head = ISTFTHeadMLX(**config["head"]["init_args"])
+        backbone = VocosBackbone(**config["backbone"]["init_args"])
+        head = ISTFTHead(**config["head"]["init_args"])
         model = cls(backbone=backbone, head=head)
         return model
 
     @classmethod
-    def from_pretrained(cls, repo_id: str, revision: Optional[str] = None) -> VocosMLX:
+    def from_pretrained(cls, repo_id: str, revision: Optional[str] = None) -> Vocos:
         """
         Class method to create a new Vocos model instance from a pre-trained model stored in the Hugging Face model hub.
         """
