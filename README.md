@@ -6,7 +6,7 @@ Paper [[abs]](https://arxiv.org/abs/2306.00814) [[pdf]](https://arxiv.org/pdf/23
 
 ## Installation
 
-To use Vocos only in inference mode, install it using:
+To use Vocos in inference mode, install it using:
 
 ```bash
 pip install vocos-mlx
