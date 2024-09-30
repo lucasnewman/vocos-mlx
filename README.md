@@ -14,6 +14,8 @@ pip install vocos-mlx
 
 ## Usage
 
+### Mel Spectrogram
+
 ```python
 from vocos_mlx import Vocos, load_audio, log_mel_spectrogram
 
@@ -22,15 +24,22 @@ mel_spec = log_mel_spectrogram(audio, n_mels = 100)
 
 vocos = Vocos.from_pretrained("lucasnewman/vocos-mel-24khz")
 
-# reconstruct with mel spec
+# reconstruct
 reconstructed_audio = vocos(audio)
 
 # decode from mel spec
 decoded_audio = vocos.decode(mx.expand_dims(mel_spec, axis=0))
+```
+### Encodec
+
+```python
+from vocos_mlx import Vocos, load_audio, log_mel_spectrogram
+
+audio = load_audio("audio.wav", 24_000)
 
 vocos_encodec = Vocos.from_pretrained("lucasnewman/vocos-encodec-24khz")
 
-# reconstruct with encodec
+# reconstruct
 reconstructed = vocos_encodec(audio, bandwidth_id = 3)
 
 # decode with encodec codes
