@@ -1,6 +1,6 @@
 # Vocos — MLX 
 
-Implementation of [Vocos](https://github.com/gemelo-ai/vocos) with the [MLX](https://github.com/ml-explore/mlx) framework. Vocos allows for high quality reconstruction of audio from Mel spectrograms or Encodec tokens.
+Implementation of [Vocos](https://github.com/gemelo-ai/vocos) with the [MLX](https://github.com/ml-explore/mlx) framework. Vocos allows for high quality reconstruction of audio from Mel spectrograms or EnCodec tokens.
 
 ### Vocos: Closing the gap between time-domain and Fourier-based neural vocoders for high-quality audio synthesis
 Paper [[abs]](https://arxiv.org/abs/2306.00814) [[pdf]](https://arxiv.org/pdf/2306.00814.pdf)
@@ -31,7 +31,7 @@ mel_spec = log_mel_spectrogram(audio, n_mels = 100)
 decoded_audio = vocos.decode(mel_spec)
 ```
 
-### Encodec
+### EnCodec
 
 ```python
 from vocos_mlx import Vocos, load_audio
@@ -49,7 +49,7 @@ decoded_audio = vocos.decode_from_codes(codes, bandwidth_id = 3)
 
 ## Appreciation
 
-[Awni Hannun](https://github.com/awni) for the reference [Encodec](https://github.com/ml-explore/mlx-examples/tree/main/encodec) implementation for MLX.
+[Awni Hannun](https://github.com/awni) for the reference [EnCodec](https://github.com/ml-explore/mlx-examples/tree/main/encodec) implementation for MLX.
 
 ## Citations
 
