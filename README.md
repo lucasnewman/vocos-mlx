@@ -34,18 +34,18 @@ decoded_audio = vocos.decode(mx.expand_dims(mel_spec, axis=0))
 ### Encodec
 
 ```python
-from vocos_mlx import Vocos, load_audio, log_mel_spectrogram
+from vocos_mlx import Vocos, load_audio
 
 audio = load_audio("audio.wav", 24_000)
 
-vocos_encodec = Vocos.from_pretrained("lucasnewman/vocos-encodec-24khz")
+vocos = Vocos.from_pretrained("lucasnewman/vocos-encodec-24khz")
 
 # reconstruct
-reconstructed = vocos_encodec(audio, bandwidth_id = 3)
+reconstructed = vocos(audio, bandwidth_id = 3)
 
 # decode with encodec codes
 codes = ...
-decoded_audio = vocos_encodec.decode_from_codes(codes)
+decoded_audio = vocos.decode_from_codes(codes)
 ```
 
 ## Citations
