@@ -47,6 +47,10 @@ codes = vocos.get_encodec_codes(audio, bandwidth_id = 3)
 decoded_audio = vocos.decode_from_codes(codes, bandwidth_id = 3)
 ```
 
+## Appreciation
+
+[Awni Hannun](https://github.com/awni) for the reference [Encodec](https://github.com/ml-explore/mlx-examples/tree/main/encodec) implementation for MLX.
+
 ## Citations
 
 ```
