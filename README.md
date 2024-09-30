@@ -1,7 +1,8 @@
-# Vocos: Closing the gap between time-domain and Fourier-based neural vocoders for high-quality audio synthesis
+# Vocos — MLX 
 
 Implementation of [Vocos](https://github.com/gemelo-ai/vocos) with the [MLX](https://github.com/ml-explore/mlx) framework.
 
+### Vocos: Closing the gap between time-domain and Fourier-based neural vocoders for high-quality audio synthesis
 Paper [[abs]](https://arxiv.org/abs/2306.00814) [[pdf]](https://arxiv.org/pdf/2306.00814.pdf)
 
 ## Installation
