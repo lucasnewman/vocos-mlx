@@ -1,15 +1,8 @@
-import librosa
+import mlx.core as mx
 import numpy as np
 
-filterbank = librosa.filters.mel(
-    sr=24000,
-    n_fft=1024,
-    n_mels=100,
-    norm = None,
-    htk = True
-)
+from huggingface_hub import hf_hub_download
 
-np.savez_compressed(
-    "assets/mel_filters.npz",
-    mel_100=filterbank
-)
+path = hf_hub_download("lucasnewman/vocos-mel-24khz", "model.safetensors")
+filterbank = mx.load(path)["feature_extractor.mel_spec.mel_scale.fb"].moveaxis(0, 1)
+np.savez_compressed("assets/mel_filters.npz", mel_100=filterbank)
