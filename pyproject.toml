@@ -1,14 +1,16 @@
 [build-system]
 requires = [
+    "encodec",
     "huggingface_hub",
-    "mlx>=0.17.3",
-    "numpy"
+    "mlx>=0.18.0",
+    "numpy",
+    "setuptools",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "vocos-mlx"
-version = "0.0.1"
+version = "0.0.2"
 authors = [{name = "Lucas Newman", email = "lucasnewman@me.com"}]
 license = {text = "MIT"}
 description = "Vocos - MLX"
@@ -16,7 +18,7 @@ readme = "README.md"
 keywords = [
     "artificial intelligence",
     "asr",
-    "audio-generation,"
+    "audio-generation",
     "deep learning",
     "transformers",
     "text-to-speech"
@@ -33,3 +35,6 @@ dependencies = ['setuptools; python_version>="3.9"']
 
 [project.urls]
 Homepage = "https://github.com/lucasnewman/vocos-mlx"
+
+[tool.setuptools]
+packages = ["vocos_mlx"]
