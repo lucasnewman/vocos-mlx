@@ -14,8 +14,7 @@ import yaml
 
 from huggingface_hub import hf_hub_download
 
-from encodec import EncodecModel
-import torch
+from vocos_mlx.encodec import EncodecModel
 
 
 def instantiate_class(args: Union[Any, Tuple[Any, ...]], init: Dict[str, Any]) -> Any:
@@ -141,7 +140,7 @@ def log_mel_spectrogram(
     filters = mel_filters(n_mels)
     mel_spec = magnitudes @ filters.T
     log_spec = mx.maximum(mel_spec, 1e-5).log()
-    return log_spec
+    return mx.expand_dims(log_spec, axis=0)
 
 
 class FeatureExtractor(nn.Module):
@@ -166,11 +165,8 @@ class MelSpectrogramFeatures(FeatureExtractor):
         self.padding = padding
 
     def __call__(self, audio, **kwargs):
-        return mx.expand_dims(
-            log_mel_spectrogram(
-                audio, n_mels=100, n_fft=1024, hop_length=256, padding=0
-            ),
-            axis=0,
+        return log_mel_spectrogram(
+            audio, n_mels=100, n_fft=1024, hop_length=256, padding=0
         )
 
 
@@ -182,44 +178,39 @@ class EncodecFeatures(FeatureExtractor):
         train_codebooks: bool = False,
     ):
         super().__init__()
-        
-        # TODO: Use MLX encodec model.
+
         if encodec_model == "encodec_24khz":
-            encodec = EncodecModel.encodec_model_24khz
+            encodec, preprocessor = EncodecModel.from_pretrained(
+                "mlx-community/encodec-24khz-float32"
+            )
         elif encodec_model == "encodec_48khz":
-            encodec = EncodecModel.encodec_model_48khz
+            encodec, preprocessor = EncodecModel.from_pretrained(
+                "mlx-community/encodec-48khz-float32"
+            )
         else:
             raise ValueError(
                 f"Unsupported encodec_model: {encodec_model}. Supported options are 'encodec_24khz' and 'encodec_48khz'."
             )
-        self.encodec = encodec(pretrained=True)
-        for param in self.encodec.parameters():
-            param.requires_grad = False
-        self.num_q = self.encodec.quantizer.get_num_quantizers_for_bandwidth(
-            self.encodec.frame_rate, bandwidth=max(bandwidths)
-        )
 
+        self.encodec = encodec
+        self.preprocessor = preprocessor
+        self.num_q = self.encodec.quantizer.get_num_quantizers_for_bandwidth(
+            bandwidth=max(bandwidths)
+        )
         self.codebook_weights = mx.concatenate(
-            [
-                mx.array(vq.codebook.numpy())
-                for vq in self.encodec.quantizer.vq.layers[: self.num_q]
-            ]
+            [vq.codebook.embed for vq in self.encodec.quantizer.layers[: self.num_q]]
         )
         self.bandwidths = bandwidths
 
-    def get_encodec_codes(self, audio: mx.array) -> mx.array:
-        audio = torch.Tensor(memoryview(audio)).unsqueeze(0).unsqueeze(0)
-
-        emb = self.encodec.encoder(audio)
-        codes = self.encodec.quantizer.encode(
-            emb, self.encodec.frame_rate, self.encodec.bandwidth
-        )
-
-        return mx.array(codes.numpy())
+    def get_encodec_codes(self, audio: mx.array, bandwidth_id: int) -> mx.array:
+        features, mask = self.preprocessor(audio)
+        codes, _ = self.encodec.encode(features, mask, bandwidth=self.bandwidths[bandwidth_id])
+        return codes
 
     def get_features_from_codes(self, codes: mx.array) -> mx.array:
+        codes = mx.reshape(codes, (codes.shape[-2], 1, codes.shape[-1]))
         offsets = mx.arange(
-            0, self.encodec.quantizer.bins * len(codes), self.encodec.quantizer.bins
+            0, self.encodec.quantizer.codebook_size * codes.shape[0], self.encodec.quantizer.codebook_size
         )
         embeddings_idxs = codes + mx.reshape(offsets, (offsets.shape[0], 1, 1))
         embeddings = self.codebook_weights[embeddings_idxs]
@@ -231,9 +222,7 @@ class EncodecFeatures(FeatureExtractor):
         if bandwidth_id is None:
             raise ValueError("The 'bandwidth_id' argument is required")
 
-        self.encodec.eval()
-        self.encodec.set_target_bandwidth(self.bandwidths[bandwidth_id])
-        codes = self.get_encodec_codes(audio)
+        codes = self.get_encodec_codes(audio, bandwidth_id=bandwidth_id)
         return self.get_features_from_codes(codes)
 
 
@@ -438,7 +427,8 @@ class Vocos(nn.Module):
             else:
                 new_weights[k] = v
 
-        model.load_weights(list(new_weights.items()))
+        # use strict = False to avoid the encodec weights
+        model.load_weights(list(new_weights.items()), strict = False)
         model.eval()
 
         return model

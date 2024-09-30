@@ -41,3 +41,12 @@ def load_audio(file: str, sr: int = 24_000):
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
 
     return mx.array(np.frombuffer(out, np.int16)).flatten().astype(mx.float32) / 32768.0
+
+def save_audio(file: str, audio: mx.array, sampling_rate: int):
+    """
+    Save audio to a wave (.wav) file.
+    """
+    from scipy.io.wavfile import write
+
+    audio = (audio * 32767).astype(mx.int16)
+    write(file, sampling_rate, np.array(audio))

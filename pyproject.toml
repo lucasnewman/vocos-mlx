@@ -1,6 +1,5 @@
 [build-system]
 requires = [
-    "encodec",
     "huggingface_hub",
     "mlx>=0.18.0",
     "numpy",
@@ -10,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vocos-mlx"
-version = "0.0.2"
+version = "0.0.3"
 authors = [{name = "Lucas Newman", email = "lucasnewman@me.com"}]
 license = {text = "MIT"}
 description = "Vocos - MLX"
