@@ -678,7 +678,7 @@ class EncodecModel(nn.Module):
             return max(1, int((1.0 - self.config.overlap) * self.chunk_length))
 
     @classmethod
-    def from_pretrained(cls, path_or_repo):
+    def from_pretrained(cls, path_or_repo: str):
         """
         Load the model and audo preprocessor.
         """

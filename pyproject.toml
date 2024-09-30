@@ -3,6 +3,7 @@ requires = [
     "huggingface_hub",
     "mlx>=0.18.0",
     "numpy",
+    "pyyaml",
     "setuptools",
 ]
 build-backend = "setuptools.build_meta"

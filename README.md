@@ -43,8 +43,8 @@ audio = load_audio("audio.wav", 24_000)
 reconstructed_audio = vocos(audio, bandwidth_id = 3)
 
 # decode with encodec codes
-codes = ...
-decoded_audio = vocos.decode_from_codes(codes)
+codes = vocos.feature_extractor.get_encodec_codes(audio, bandwidth_id = 3)
+decoded_audio = vocos.decode_from_codes(codes, bandwidth_id = 3)
 ```
 
 ## Citations
