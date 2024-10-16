@@ -3,12 +3,11 @@ from functools import lru_cache
 import math
 import os
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional
 from types import SimpleNamespace
 
 import mlx.core as mx
 import mlx.nn as nn
-import numpy as np
 
 from huggingface_hub import snapshot_download
 import yaml
@@ -30,7 +29,9 @@ def mel_filters(n_mels: int) -> mx.array:
 
 @lru_cache(maxsize=None)
 def hanning(size):
-    return mx.array(np.hanning(size + 1)[:-1])
+    return mx.array(
+        [0.5 * (1 - math.cos(2 * math.pi * n / (size - 1))) for n in range(size)]
+    )
 
 
 def stft(x, window, nperseg=256, noverlap=None, nfft=None, pad_mode="constant"):
@@ -88,32 +89,13 @@ def istft(x, window, nperseg=256, noverlap=None, nfft=None):
 
 
 def log_mel_spectrogram(
-    audio: Union[mx.array, np.ndarray],
+    audio: mx.array,
     n_mels: int = 100,
     n_fft: int = 1024,
     hop_length: int = 256,
     padding: int = 0,
     filterbank: Optional[mx.array] = None,
 ):
-    """
-    Compute the log-Mel spectrogram of
-
-    Parameters
-    ----------
-    audio: Union[str, np.ndarray, mx.array], shape = (*)
-        The path to audio or either a NumPy or mlx array containing the audio waveform in 16 kHz
-
-    n_mels: int
-        The number of Mel-frequency filters, only 100 is supported
-
-    padding: int
-        Number of zero samples to pad to the right
-
-    Returns
-    -------
-    mx.array, shape = (n_mels, n_frames)
-        An  array that contains the Mel spectrogram
-    """
     if not isinstance(audio, mx.array):
         audio = mx.array(audio)
 
@@ -154,7 +136,7 @@ class MelSpectrogramFeatures(FeatureExtractor):
         self.n_mels = n_mels
         self.filterbank = filterbank
 
-    def __call__(self, audio, **kwargs):
+    def __call__(self, audio: mx.array, **kwargs):
         return log_mel_spectrogram(
             audio,
             n_mels=self.n_mels,
@@ -260,7 +242,7 @@ class ConvNeXtBlock(nn.Module):
         super().__init__()
 
         # depthwise conv
-        self.dwconv = GroupableConv1d(dim, dim, kernel_size=7, padding=3, groups=dim)
+        self.dwconv = nn.Conv1d(dim, dim, kernel_size=7, padding=3, groups=dim)
         self.adanorm = adanorm_num_embeddings is not None
         if adanorm_num_embeddings:
             self.norm = AdaLayerNorm(adanorm_num_embeddings, dim, eps=1e-6)
@@ -308,81 +290,6 @@ class AdaLayerNorm(nn.Module):
         x = mx.fast.layer_norm(x, weight=None, bias=None, eps=self.eps)
         x = x * scale + shift
         return x
-
-
-class GroupableConv1d(nn.Module):
-    """Applies a 1-dimensional convolution over the multi-channel input sequence.
-
-    The channels are expected to be last i.e. the input shape should be ``NLC`` where:
-
-    * ``N`` is the batch dimension
-    * ``L`` is the sequence length
-    * ``C`` is the number of input channels
-
-    Args:
-        in_channels (int): The number of input channels
-        out_channels (int): The number of output channels
-        kernel_size (int): The size of the convolution filters
-        stride (int, optional): The stride when applying the filter.
-            Default: ``1``.
-        padding (int, optional): How many positions to 0-pad the input with.
-            Default: ``0``.
-        dilation (int, optional): The dilation of the convolution.
-        groups (int, optional): The number of groups for the convolution.
-            Default: ``1``.
-        bias (bool, optional): If ``True`` add a learnable bias to the output.
-            Default: ``True``
-    """
-
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int,
-        stride: int = 1,
-        padding: int = 0,
-        dilation: int = 1,
-        groups: int = 1,
-        bias: bool = True,
-    ):
-        super().__init__()
-
-        if in_channels % groups != 0:
-            raise ValueError(
-                f"The number of input channels ({in_channels}) must be "
-                f"divisible by the number of groups ({groups})"
-            )
-
-        scale = math.sqrt(1 / (in_channels * kernel_size))
-        self.weight = mx.random.uniform(
-            low=-scale,
-            high=scale,
-            shape=(out_channels, kernel_size, in_channels // groups),
-        )
-        if bias:
-            self.bias = mx.zeros((out_channels,))
-
-        self.padding = padding
-        self.dilation = dilation
-        self.stride = stride
-        self.groups = groups
-
-    def _extra_repr(self):
-        return (
-            f"{self.weight.shape[-1]}, {self.weight.shape[0]}, "
-            f"kernel_size={self.weight.shape[1]}, stride={self.stride}, "
-            f"padding={self.padding}, dilation={self.dilation}, "
-            f"groups={self.groups}, "
-            f"bias={'bias' in self}"
-        )
-
-    def __call__(self, x):
-        y = mx.conv1d(
-            x, self.weight, self.stride, self.padding, self.dilation, self.groups
-        )
-        if "bias" in self:
-            y = y + self.bias
-        return y
 
 
 class VocosBackbone(nn.Module):

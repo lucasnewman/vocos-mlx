@@ -1,16 +1,12 @@
 [build-system]
 requires = [
-    "huggingface_hub",
-    "mlx",
-    "numpy",
-    "pyyaml",
-    "setuptools",
+    'setuptools'
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "vocos-mlx"
-version = "0.0.5"
+version = "0.0.6"
 authors = [{name = "Lucas Newman", email = "lucasnewman@me.com"}]
 license = {text = "MIT"}
 description = "Vocos - MLX"
@@ -31,7 +27,12 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
 ]
 requires-python = ">=3.9"
-dependencies = ['setuptools; python_version>="3.9"']
+dependencies = [
+    "huggingface_hub",
+    "mlx",
+    "numpy",
+    "pyyaml"
+]
 
 [project.urls]
 Homepage = "https://github.com/lucasnewman/vocos-mlx"
