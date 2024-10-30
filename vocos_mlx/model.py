@@ -1,7 +1,4 @@
 from __future__ import annotations
-from functools import lru_cache
-import math
-import os
 from pathlib import Path
 from typing import Any, List, Optional
 from types import SimpleNamespace
@@ -13,103 +10,7 @@ from huggingface_hub import snapshot_download
 import yaml
 
 from vocos_mlx.encodec import EncodecModel
-
-
-@lru_cache(maxsize=None)
-def mel_filters(n_mels: int) -> mx.array:
-    """
-    load the mel filterbank matrix for projecting STFT into a Mel spectrogram.
-    Saved using extract_filterbank.py
-    """
-    assert n_mels in {100}, f"Unsupported n_mels: {n_mels}"
-
-    filename = os.path.join("assets", "mel_filters.npz")
-    return mx.load(filename, format="npz")[f"mel_{n_mels}"]
-
-
-@lru_cache(maxsize=None)
-def hanning(size):
-    return mx.array(
-        [0.5 * (1 - math.cos(2 * math.pi * n / (size - 1))) for n in range(size)]
-    )
-
-
-def stft(x, window, nperseg=256, noverlap=None, nfft=None, pad_mode="constant"):
-    if nfft is None:
-        nfft = nperseg
-    if noverlap is None:
-        noverlap = nfft // 4
-
-    def _pad(x, padding, pad_mode="constant"):
-        if pad_mode == "constant":
-            return mx.pad(x, [(padding, padding)])
-        elif pad_mode == "reflect":
-            prefix = x[1 : padding + 1][::-1]
-            suffix = x[-(padding + 1) : -1][::-1]
-            return mx.concatenate([prefix, x, suffix])
-        else:
-            raise ValueError(f"Invalid pad_mode {pad_mode}")
-
-    padding = nperseg // 2
-    x = _pad(x, padding, pad_mode)
-
-    strides = [noverlap, 1]
-    t = (x.size - nperseg + noverlap) // noverlap
-    shape = [t, nfft]
-    x = mx.as_strided(x, shape=shape, strides=strides)
-    return mx.fft.rfft(x * window)
-
-
-def istft(x, window, nperseg=256, noverlap=None, nfft=None):
-    if nfft is None:
-        nfft = nperseg
-    if noverlap is None:
-        noverlap = nfft // 4
-
-    t = (x.shape[0] - 1) * noverlap + nperseg
-    reconstructed = mx.zeros(t)
-    window_sum = mx.zeros(t)
-
-    for i in range(x.shape[0]):
-        # inverse FFT of each frame
-        frame_time = mx.fft.irfft(x[i])
-
-        # get the position in the time-domain signal to add the frame
-        start = i * noverlap
-        end = start + nperseg
-
-        # overlap-add the inverse transformed frame, scaled by the window
-        reconstructed[start:end] += frame_time * window
-        window_sum[start:end] += window
-
-    # normalize by the sum of the window values
-    reconstructed = mx.where(window_sum != 0, reconstructed / window_sum, reconstructed)
-
-    return reconstructed
-
-
-def log_mel_spectrogram(
-    audio: mx.array,
-    n_mels: int = 100,
-    n_fft: int = 1024,
-    hop_length: int = 256,
-    padding: int = 0,
-    filterbank: Optional[mx.array] = None,
-):
-    if not isinstance(audio, mx.array):
-        audio = mx.array(audio)
-
-    if padding > 0:
-        audio = mx.pad(audio, (0, padding))
-
-    freqs = stft(audio, hanning(n_fft), nperseg=n_fft, noverlap=hop_length)
-    magnitudes = freqs[:-1, :].abs()
-    filters = filterbank if filterbank is not None else mel_filters(n_mels)
-    mel_spec = magnitudes @ filters.T
-    log_spec = mx.maximum(mel_spec, 1e-5).log()
-    return mx.expand_dims(log_spec, axis=0)
-
-
+from vocos_mlx.mel import log_mel_spectrogram, istft, hanning
 class FeatureExtractor(nn.Module):
     """Base class for feature extractors."""
 
@@ -125,25 +26,24 @@ class MelSpectrogramFeatures(FeatureExtractor):
         hop_length=256,
         n_mels=100,
         padding="center",
-        filterbank: Optional[mx.array] = None,
     ):
         super().__init__()
         if padding not in ["center", "same"]:
             raise ValueError("Padding must be 'center' or 'same'.")
         self.padding = padding
+        self.sample_rate = sample_rate
         self.n_fft = n_fft
         self.hop_length = hop_length
         self.n_mels = n_mels
-        self.filterbank = filterbank
 
     def __call__(self, audio: mx.array, **kwargs):
         return log_mel_spectrogram(
             audio,
+            sample_rate=self.sample_rate,
             n_mels=self.n_mels,
             n_fft=self.n_fft,
             hop_length=self.hop_length,
-            padding=0,
-            filterbank=self.filterbank,
+            padding=0
         )
 
 
@@ -352,7 +252,7 @@ class Vocos(nn.Module):
 
     @classmethod
     def from_hparams(
-        cls, config_path: str, filterbank: Optional[mx.array] = None
+        cls, config_path: str
     ) -> Vocos:
         """
         Class method to create a new Vocos model instance from hyperparameters stored in a yaml configuration file.
@@ -362,8 +262,6 @@ class Vocos(nn.Module):
 
         if "MelSpectrogramFeatures" in config.feature_extractor["class_path"]:
             feature_extractor_init_args = config.feature_extractor["init_args"]
-            if filterbank is not None:
-                feature_extractor_init_args["filterbank"] = filterbank
             feature_extractor = MelSpectrogramFeatures(**feature_extractor_init_args)
         elif "EncodecFeatures" in config.feature_extractor["class_path"]:
             feature_extractor = EncodecFeatures(**config.feature_extractor["init_args"])
@@ -391,17 +289,8 @@ class Vocos(nn.Module):
         with open(model_path, "rb") as f:
             weights = mx.load(f)
 
-        # load the filterbank for model initialization
-
-        try:
-            filterbank = weights.pop(
-                "feature_extractor.mel_spec.mel_scale.fb"
-            ).moveaxis(0, 1)
-        except KeyError:
-            filterbank = None
-
         config_path = path / "config.yaml"
-        model = cls.from_hparams(config_path, filterbank)
+        model = cls.from_hparams(config_path)
 
         # remove unused weights
         try:
